@@ -15,4 +15,4 @@ jobs:
       - name: Install dependencies
         run: npm install
       - name: Start Bot
-        run: node index.js
+        run: node main.js
