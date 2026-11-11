@@ -7,7 +7,6 @@ const {
 const P = require("pino");
 
 async function startBot() {
-    // 1. إعداد حالة المصادقة
     const { state, saveCreds } = await useMultiFileAuthState("session");
     const { version } = await fetchLatestBaileysVersion();
 
@@ -20,15 +19,14 @@ async function startBot() {
 
     sock.ev.on("creds.update", saveCreds);
 
-    // 2. مهلة انتظار 5 ثوانٍ لضمان استقرار اتصال الشبكة تماماً قبل طلب الكود
+    // مهلة 5 ثوانٍ لضمان استقرار الاتصال قبل فحص أو طلب الكود
     await new Promise(resolve => setTimeout(resolve, 5000));
 
-    // 3. طلب كود الربط إذا لم يكن مسجلاً مسبقاً
+    // طلب الكود فقط إذا لم تكن الجلسة محفوظة مسبقاً
     if (!sock.authState.creds.registered) {
-        const phoneNumber = "967780758757"; // رقم هاتفك
+        const phoneNumber = "967780758757";
         console.log("[ SETUP ] Requesting pairing code automatically...");
         
-        // مهلة إضافية بسيطة لتأكيد جاهزية السيرفر
         await new Promise(resolve => setTimeout(resolve, 3000));
         
         try {
@@ -38,23 +36,26 @@ async function startBot() {
             console.log(`Phone Number: ${phoneNumber}`);
             console.log("-----------------------------\n");
         } catch (error) {
-            console.log("[ ERROR ] Failed to get pairing code.");
-            console.error(error);
+            console.log("[ ERROR ] Failed to get pairing code. Retrying...");
+            setTimeout(() => startBot(), 5000);
         }
     }
 
-    // 4. إدارة الاتصال وإعادة المحاولة عند الانقطاع
+    // إدارة الاتصال وإعادة المحاولة الذكية دون فقدان الجلسة
     sock.ev.on("connection.update", async (update) => {
         const { connection, lastDisconnect } = update;
         
         if (connection === "close") {
-            const shouldReconnect = (lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut);
-            console.log("⚠️ Disconnected: Connection Failure");
+            const statusCode = lastDisconnect?.error?.output?.statusCode;
+            const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+            
+            console.log("⚠️ Disconnected from WhatsApp servers.");
+            
             if (shouldReconnect) {
-                console.log("🔄 Reconnecting...");
-                setTimeout(() => startBot(), 5000);
+                console.log("🔄 Auto-reconnecting silently in background...");
+                setTimeout(() => startBot(), 5000); // إعادة المحاولة تلقائياً بدون كود جديد
             } else {
-                console.log("❌ Connection closed. Please delete session and restart.");
+                console.log("❌ Session logged out. Please clear session and re-pair.");
             }
         } else if (connection === "open") {
             console.log("✅ Bot connected successfully and running 24/7!");
@@ -62,9 +63,9 @@ async function startBot() {
     });
 
     sock.ev.on("messages.upsert", async ({ messages }) => {
-        const m = messages[0];
+        const m = messages.messages?.[0] || messages[0];
         if (!m.message || m.key.fromMe) return;
-        // هنا يمكنك إضافة أوامر بوتك
+        // أضف أوامر البوت هنا
     });
 }
 
