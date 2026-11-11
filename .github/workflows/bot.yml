@@ -13,6 +13,6 @@ jobs:
         with:
           node-version: '20'
       - name: Install dependencies
-        run: npm install chalk --legacy-peer-deps
+        run: npm install chalk@4.1.2 --legacy-peer-deps
       - name: Start Bot
         run: node main.js
