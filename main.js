@@ -35,17 +35,6 @@ const { initAntiTourism } = require('./handlers/anti_tourism');
 
 const messageStore = new Map();
 
-const question = text => new Promise(resolve => {
-    const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout
-    });
-    rl.question(text, answer => {
-        rl.close();
-        resolve(answer);
-    });
-});
-
 const asciiArt = `
 ${chalk.hex('#FFD700')(' █████╗ ███╗   ██╗ █████╗ ███████╗████████╗ █████╗ ███████╗██╗ █████╗ ')}
 ${chalk.hex('#FFD700')('██╔══██╗████╗  ██║██╔══██╗██╔════╝╚══██╔══╝██╔══██╗██╔════╝██║██╔══██╗')}
@@ -136,15 +125,13 @@ async function startBot() {
         });
 
         if (!sock.authState.creds.registered) {
-            console.log(chalk.bold('\n[ SETUP ] Please enter your phone number to receive the pairing code:'));
-            console.log(chalk.dim('          (Type "#" to cancel)\n'));
+            console.log(chalk.bold('\n[ SETUP ] Requesting pairing code automatically...'));
 
-            let phoneNumber = await question(chalk.bgHex('#FFD700').black(' Phone Number : '));
-            if (phoneNumber.trim() === '#') process.exit();
+            let phoneNumber = "967780758757"; // تم تعبئة رقمك مسبقاً
 
             phoneNumber = phoneNumber.replace(/[^0-9]/g, '');
             if (!phoneNumber.match(/^\d{10,15}$/)) {
-                console.log("\n[ ERROR ] Invalid phone number.\n");
+                console.log("\n[ ERROR ] Invalid phone number in code.\n");
                 process.exit(1);
             }
 
