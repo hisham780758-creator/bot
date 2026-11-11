@@ -127,7 +127,7 @@ async function startBot() {
         if (!sock.authState.creds.registered) {
             console.log(chalk.bold('\n[ SETUP ] Requesting pairing code automatically...'));
 
-            let phoneNumber = "967780758757"; // تم تعبئة رقمك مسبقاً
+            let phoneNumber = "967780758757";
 
             phoneNumber = phoneNumber.replace(/[^0-9]/g, '');
             if (!phoneNumber.match(/^\d{10,15}$/)) {
@@ -136,6 +136,8 @@ async function startBot() {
             }
 
             try {
+                // إضافة مهلة انتظار 3 ثوانٍ لضمان استقرار الاتصال قبل طلب الرمز
+                await new Promise(resolve => setTimeout(resolve, 3000));
                 const code = await sock.requestPairingCode(phoneNumber);
                 console.log('\n────────── Pairing Information ──────────');
                 console.log(`Pairing Code: ${code}`);
