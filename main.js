@@ -5,9 +5,27 @@ const {
     fetchLatestBaileysVersion
 } = require("@whiskeysockets/baileys");
 const P = require("pino");
+const fs = require('fs');
+const path = require('path');
 
 async function startBot() {
-    const { state, saveCreds } = await useMultiFileAuthState("session");
+    const sessionDir = path.join(__dirname, 'session');
+    
+    // التأكد من وجود مجلد الجلسة محلياً
+    if (!fs.existsSync(sessionDir)) {
+        fs.mkdirSync(sessionDir, { recursive: true });
+    }
+
+    // إذا كانت بيانات الجلسة مخزنة في متغيرات البيئة (GitHub Secrets)، يتم كتابتها تلقائياً
+    if (process.env.SESSION_DATA) {
+        const credsPath = path.join(sessionDir, 'creds.json');
+        if (!fs.existsSync(credsPath)) {
+            fs.writeFileSync(credsPath, process.env.SESSION_DATA);
+            console.log("[ INFO ] Session restored successfully from GitHub Secrets!");
+        }
+    }
+
+    const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
     const { version } = await fetchLatestBaileysVersion();
 
     const sock = makeWASocket({
@@ -19,10 +37,7 @@ async function startBot() {
 
     sock.ev.on("creds.update", saveCreds);
 
-    // مهلة 5 ثوانٍ لضمان استقرار الاتصال قبل فحص أو طلب الكود
-    await new Promise(resolve => setTimeout(resolve, 5000));
-
-    // طلب الكود فقط إذا لم تكن الجلسة محفوظة مسبقاً
+    // طلب الكود فقط إذا لم تكن الجلسة مسجلة مسبقاً
     if (!sock.authState.creds.registered) {
         const phoneNumber = "967780758757";
         console.log("[ SETUP ] Requesting pairing code automatically...");
@@ -41,7 +56,7 @@ async function startBot() {
         }
     }
 
-    // إدارة الاتصال وإعادة المحاولة الذكية دون فقدان الجلسة
+    // إدارة الاتصال وإعادة المحاولة الذكية
     sock.ev.on("connection.update", async (update) => {
         const { connection, lastDisconnect } = update;
         
@@ -49,16 +64,16 @@ async function startBot() {
             const statusCode = lastDisconnect?.error?.output?.statusCode;
             const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
             
-            console.log("⚠️ Disconnected from WhatsApp servers.");
+            console.log(`⚠️ Disconnected from WhatsApp servers. Status Code: ${statusCode}`);
             
             if (shouldReconnect) {
                 console.log("🔄 Auto-reconnecting silently in background...");
-                setTimeout(() => startBot(), 5000); // إعادة المحاولة تلقائياً بدون كود جديد
+                setTimeout(() => startBot(), 5000);
             } else {
-                console.log("❌ Session logged out. Please clear session and re-pair.");
+                console.log("❌ Session logged out. Please re-pair.");
             }
         } else if (connection === "open") {
-            console.log("✅ Bot connected successfully and running 24/7!");
+            console.log("✅ Bot connected successfully and running 24/7 on GitHub Actions!");
         }
     });
 
