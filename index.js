@@ -13,7 +13,6 @@ function handleConnection(retry = 0) {
     const currentPath = process.cwd();
     const connectionFolder = join(currentPath, 'ملف_الاتصال');
 
-    // التأكد من إنشاء مجلد الاتصال تلقائياً إذا لم يكن موجوداً لتجنب الأخطاء
     if (!fs.existsSync(connectionFolder)) {
         fs.ensureDirSync(connectionFolder);
         logger.warn('⚠️ تم إنشاء مجلد الاتصال "ملف_الاتصال" تلقائياً...');
@@ -52,4 +51,62 @@ function handleConnection(retry = 0) {
             return;
         }
 
-        
+        if (code === 429) {
+            logger.warn('⚠️ تم تجاوز معدل الطلبات، الانتظار 10 ثواني...');
+            await delay(10000);
+            return handleConnection(retry);
+        }
+
+        if (retry < maxRetries) {
+            retry++;
+            logger.warn(`⚠️ إعادة التشغيل (${retry}/${maxRetries}) بعد ${retryDelay / 1000} ثواني...`);
+            await delay(retryDelay);
+            handleConnection(retry);
+        } else {
+            logger.error('❌ تجاوز الحد الأقصى لمحاولات التشغيل. سيتم الإيقاف.');
+            process.exit(1);
+        }
+    });
+
+    child.on('error', (err) => {
+        isRunning = false;
+        logger.error(`❌ خطأ في العملية الفرعية: ${err}`);
+        if (retry < maxRetries) {
+            retry++;
+            setTimeout(() => handleConnection(retry), retryDelay);
+        }
+    });
+
+    setTimeout(() => {
+        if (!child.connected) {
+            logger.error('❌ فشل الاتصال بالبوت خلال المهلة المحددة (10 ثواني)');
+            child.kill();
+            handleConnection(retry + 1);
+        }
+    }, 10000);
+}
+
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+process.on('SIGINT', () => process.exit());
+
+process.on('uncaughtException', (err) => {
+    if (err.code === 'ECONNRESET' || err.code === 'rate-overlimit') {
+        logger.warn('⚠️ تم تجاهل خطأ شبكة مؤقت.');
+        return;
+    }
+    logger.error('❌ خطأ غير معالج:', err);
+});
+
+process.on('unhandledRejection', (reason) => {
+    if (reason?.code === 429) {
+        logger.warn('⚠️ تجاوز معدل الطلبات، جاري الانتظار...');
+        return;
+    }
+    logger.error('❌ وعد غير معالج:', reason);
+});
+
+logger.info('📦 بدء تشغيل نظام المراقبة والإشراف...');
+handleConnection();
