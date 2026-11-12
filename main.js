@@ -8,6 +8,15 @@ const P = require("pino");
 const fs = require('fs');
 const path = require('path');
 
+// استيراد كافة المعالجات وأنظمة الحماية والرصد والترحيب
+const { handleMessages } = require('./messages');         //[span_0](start_span)[span_0](end_span)
+const { initAntiContacts } = require('./anti_contacts');   //[span_1](start_span)[span_1](end_span)
+const { initAntiTourism } = require('./anti_tourism');     //[span_2](start_span)[span_2](end_span)
+const { initSecurityListener } = require('./SecurityHandler'); //[span_3](start_span)[span_3](end_span)
+const Joining = require('./Joining');                       //[span_4](start_span)[span_4](end_span)
+const welcome = require('./welcome');                       //[span_5](start_span)[span_5](end_span)
+const startPeriodicScan = require('./periodic');            //[span_6](start_span)[span_6](end_span)
+
 async function startBot() {
     const sessionDir = path.join(__dirname, 'session');
     
@@ -16,7 +25,7 @@ async function startBot() {
         fs.mkdirSync(sessionDir, { recursive: true });
     }
 
-    // إذا كانت بيانات الجلسة مخزنة في متغيرات البيئة (GitHub Secrets)، يتم كتابتها تلقائياً
+    // استعادة بيانات الجلسة من متغيرات البيئة (GitHub Secrets) تلقائياً
     if (process.env.SESSION_DATA) {
         const credsPath = path.join(sessionDir, 'creds.json');
         if (!fs.existsSync(credsPath)) {
@@ -37,7 +46,7 @@ async function startBot() {
 
     sock.ev.on("creds.update", saveCreds);
 
-    // طلب الكود فقط إذا لم تكن الجلسة مسجلة مسبقاً
+    // طلب كود الاقتران تلقائياً إذا لم تكن الجلسة مسجلة
     if (!sock.authState.creds.registered) {
         const phoneNumber = "967780758757";
         console.log("[ SETUP ] Requesting pairing code automatically...");
@@ -74,13 +83,43 @@ async function startBot() {
             }
         } else if (connection === "open") {
             console.log("✅ Bot connected successfully and running 24/7 on GitHub Actions!");
+            
+            // تفعيل كافة أنظمة الحماية، الرادارات، والدوريات فور الاتصال
+            try {
+                initAntiContacts(sock);      //[span_7](start_span)[span_7](end_span)
+                initAntiTourism(sock);       //[span_8](start_span)[span_8](end_span)
+                initSecurityListener(sock);  //[span_9](start_span)[span_9](end_span)
+                startPeriodicScan(sock);     //[span_10](start_span)[span_10](end_span)
+                console.log("🛡️ All security handlers, anti-spam radars, and systems are fully active.");
+            } catch (e) {
+                console.log("[ ERROR ] Initializing security systems:", e);
+            }
         }
     });
 
-    sock.ev.on("messages.upsert", async ({ messages }) => {
-        const m = messages.messages?.[0] || messages[0];
-        if (!m.message || m.key.fromMe) return;
-        // أضف أوامر البوت هنا
+    // ربط حدث تحديث أعضاء المجموعات (للتشغيل التلقائي للترحيب والرصد)
+    sock.ev.on("group-participants.update", async (update) => {
+        try {
+            if (typeof welcome === 'function') {
+                await welcome(sock, update); //[span_11](start_span)[span_11](end_span)
+            }
+        } catch (err) {
+            console.log("[ ERROR in group-participants.update routing ]:", err);
+        }
+    });
+
+    // معالجة الرسائل الواردة والأوامر وطلبات الانضمام
+    sock.ev.on("messages.upsert", async (chatUpdate) => {
+        try {
+            if (typeof handleMessages === 'function') {
+                await handleMessages(sock, chatUpdate); //[span_12](start_span)[span_12](end_span)
+            }
+            if (typeof Joining === 'function') {
+                await Joining(sock, chatUpdate); //[span_13](start_span)[span_13](end_span)
+            }
+        } catch (err) {
+            console.log("[ ERROR in messages.upsert routing ]:", err);
+        }
     });
 }
 
