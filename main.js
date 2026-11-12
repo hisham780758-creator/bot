@@ -8,22 +8,24 @@ const P = require("pino");
 const fs = require('fs');
 const path = require('path');
 
-// التصحيح هنا: توجيه المسار إلى داخل مجلد handlers
+// استيراد كافة المعالجات وأنظمة الحماية من داخل مجلد handlers
 const { handleMessages } = require('./handlers/messages');
-const { initAntiContacts } = require('./anti_contacts');
-const { initAntiTourism } = require('./anti_tourism');
-const { initSecurityListener } = require('./SecurityHandler');
-const Joining = require('./Joining');
-const welcome = require('./welcome');
-const startPeriodicScan = require('./periodic');
+const { initAntiContacts } = require('./handlers/anti_contacts');
+const { initAntiTourism } = require('./handlers/anti_tourism');
+const { initSecurityListener } = require('./handlers/SecurityHandler');
+const Joining = require('./handlers/Joining');
+const welcome = require('./handlers/welcome');
+const startPeriodicScan = require('./handlers/periodic');
 
 async function startBot() {
     const sessionDir = path.join(__dirname, 'session');
     
+    // التأكد من وجود مجلد الجلسة محلياً
     if (!fs.existsSync(sessionDir)) {
         fs.mkdirSync(sessionDir, { recursive: true });
     }
 
+    // استعادة بيانات الجلسة من متغيرات البيئة (GitHub Secrets) تلقائياً
     if (process.env.SESSION_DATA) {
         const credsPath = path.join(sessionDir, 'creds.json');
         if (!fs.existsSync(credsPath)) {
@@ -44,6 +46,7 @@ async function startBot() {
 
     sock.ev.on("creds.update", saveCreds);
 
+    // طلب كود الاقتران تلقائياً إذا لم تكن الجلسة مسجلة
     if (!sock.authState.creds.registered) {
         const phoneNumber = "967780758757";
         console.log("[ SETUP ] Requesting pairing code automatically...");
@@ -62,6 +65,7 @@ async function startBot() {
         }
     }
 
+    // إدارة الاتصال وإعادة المحاولة الذكية
     sock.ev.on("connection.update", async (update) => {
         const { connection, lastDisconnect } = update;
         
@@ -80,6 +84,7 @@ async function startBot() {
         } else if (connection === "open") {
             console.log("✅ Bot connected successfully and running 24/7 on GitHub Actions!");
             
+            // تفعيل كافة أنظمة الحماية، الرادارات، والدوريات فور الاتصال
             try {
                 initAntiContacts(sock);
                 initAntiTourism(sock);
@@ -92,6 +97,7 @@ async function startBot() {
         }
     });
 
+    // ربط حدث تحديث أعضاء المجموعات (للتشغيل التلقائي للترحيب والرصد)
     sock.ev.on("group-participants.update", async (update) => {
         try {
             if (typeof welcome === 'function') {
@@ -102,6 +108,7 @@ async function startBot() {
         }
     });
 
+    // معالجة الرسائل الواردة والأوامر وطلبات الانضمام
     sock.ev.on("messages.upsert", async (chatUpdate) => {
         try {
             if (typeof handleMessages === 'function') {
