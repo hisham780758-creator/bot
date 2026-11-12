@@ -1,23 +1,13 @@
+console.log("🚀 Starting Bot Supervisor...");
 const { fork } = require('child_process');
-const { join } = require('path');
-const fs = require('fs-extra');
+const path = require('path');
 
-function startBot() {
-    console.log('🚀 [SUPERVISOR] Starting bot via index.js...');
-    
-    const child = fork(join(__dirname, 'main.js'), [], {
-        stdio: ['inherit', 'inherit', 'inherit', 'ipc']
-    });
-
-    child.on('exit', (code) => {
-        console.log(`⚠️ Bot process exited with code ${code}. Restarting in 5s...`);
-        setTimeout(startBot, 5000);
-    });
-
-    child.on('error', (err) => {
-        console.log(`❌ Bot process error: ${err}`);
-        setTimeout(startBot, 5000);
+function start() {
+    const p = fork(path.join(__dirname, 'main.js'));
+    p.on('exit', (code) => {
+        console.log(`⚠️ Process exited with code ${code}, restarting...`);
+        setTimeout(start, 3000);
     });
 }
 
-startBot();
+start();
