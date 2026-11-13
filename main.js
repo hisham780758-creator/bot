@@ -8,7 +8,6 @@ const P = require("pino");
 const fs = require('fs');
 const path = require('path');
 
-// استيراد كافة المعالجات وأنظمة الحماية من داخل مجلد handlers
 const { handleMessages } = require('./handlers/messages');
 const { initAntiContacts } = require('./handlers/anti_contacts');
 const { initAntiTourism } = require('./handlers/anti_tourism');
@@ -20,17 +19,23 @@ const startPeriodicScan = require('./handlers/periodic');
 async function startBot() {
     const sessionDir = path.join(__dirname, 'session');
     
-    // التأكد من وجود مجلد الجلسة محلياً
     if (!fs.existsSync(sessionDir)) {
         fs.mkdirSync(sessionDir, { recursive: true });
     }
 
-    // استعادة بيانات الجلسة من متغيرات البيئة (GitHub Secrets) تلقائياً
+    // استعادة الجلسة من متغير البيئة SESSION_DATA بدقة
     if (process.env.SESSION_DATA) {
         const credsPath = path.join(sessionDir, 'creds.json');
-        if (!fs.existsSync(credsPath)) {
-            fs.writeFileSync(credsPath, process.env.SESSION_DATA);
-            console.log("[ INFO ] Session restored successfully from GitHub Secrets!");
+        try {
+            // التحقق مما إذا كانت البيانات مدخلة كـ JSON أو نص خام
+            let sessionData = process.env.SESSION_DATA;
+            if (typeof sessionData === 'string' && !sessionData.trim().startsWith('{')) {
+                // إذا كانت مخزنة بطريقة ما، نتركها كما هي
+            }
+            fs.writeFileSync(credsPath, sessionData);
+            console.log("[ INFO ] Session restored successfully from Railway Environment Variables!");
+        } catch (e) {
+            console.log("[ ERROR ] Failed to write session data:", e);
         }
     }
 
@@ -46,26 +51,6 @@ async function startBot() {
 
     sock.ev.on("creds.update", saveCreds);
 
-    // طلب كود الاقتران تلقائياً إذا لم تكن الجلسة مسجلة
-    if (!sock.authState.creds.registered) {
-        const phoneNumber = "967780758757";
-        console.log("[ SETUP ] Requesting pairing code automatically...");
-        
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        
-        try {
-            const code = await sock.requestPairingCode(phoneNumber);
-            console.log("\n--- Pairing Information ---");
-            console.log(`Pairing Code: ${code}`);
-            console.log(`Phone Number: ${phoneNumber}`);
-            console.log("-----------------------------\n");
-        } catch (error) {
-            console.log("[ ERROR ] Failed to get pairing code. Retrying...");
-            setTimeout(() => startBot(), 5000);
-        }
-    }
-
-    // إدارة الاتصال وإعادة المحاولة الذكية
     sock.ev.on("connection.update", async (update) => {
         const { connection, lastDisconnect } = update;
         
@@ -82,22 +67,20 @@ async function startBot() {
                 console.log("❌ Session logged out. Please re-pair.");
             }
         } else if (connection === "open") {
-            console.log("✅ Bot connected successfully and running 24/7 on GitHub Actions!");
+            console.log("✅ Bot connected successfully and running 24/7 on Railway!");
             
-            // تفعيل كافة أنظمة الحماية، الرادارات، والدوريات فور الاتصال
             try {
                 initAntiContacts(sock);
                 initAntiTourism(sock);
                 initSecurityListener(sock);
                 startPeriodicScan(sock);
-                console.log("🛡️ All security handlers, anti-spam radars, and systems are fully active.");
+                console.log("🛡️ All security handlers are fully active.");
             } catch (e) {
                 console.log("[ ERROR ] Initializing security systems:", e);
             }
         }
     });
 
-    // ربط حدث تحديث أعضاء المجموعات (للتشغيل التلقائي للترحيب والرصد)
     sock.ev.on("group-participants.update", async (update) => {
         try {
             if (typeof welcome === 'function') {
@@ -108,7 +91,6 @@ async function startBot() {
         }
     });
 
-    // معالجة الرسائل الواردة والأوامر وطلبات الانضمام
     sock.ev.on("messages.upsert", async (chatUpdate) => {
         try {
             if (typeof handleMessages === 'function') {
