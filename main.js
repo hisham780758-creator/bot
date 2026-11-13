@@ -4,101 +4,83 @@ const {
     DisconnectReason,
     fetchLatestBaileysVersion,
     makeCacheableSignalKeyStore
-} = require("@whiskeysockets/baileys");
-const P = require("pino");
-const fs = require('fs');
+} = require('@whiskeysockets/baileys');
+const pino = require('pino');
+const { Boom } = require('@hapi/boom');
 const path = require('path');
-const readline = require("readline");
+const fs = require('fs-extra');
 
-const { handleMessages } = require('./handlers/messages');
-const { initAntiContacts } = require('./handlers/anti_contacts');
-const { initAntiTourism } = require('./handlers/anti_tourism');
-const { initSecurityListener } = require('./handlers/SecurityHandler');
-const Joining = require('./handlers/Joining');
-const welcome = require('./handlers/welcome');
-const startPeriodicScan = require('./handlers/periodic');
-
-const phoneNumber = "967780758757"; // رقمك الأساسي
+// رقم الهاتف الخاص بك لطلب كود الاقتران
+const phoneNumber = "967780758757";
 
 async function startBot() {
-    const sessionDir = path.join(__dirname, 'session');
+    // استقبال مسار مجلد الاتصال القادم من index.js (ملف_الاتصال) أو استخدام session كاحتياطي
+    const sessionDir = process.env.CONNECTION_FOLDER || path.join(__dirname, 'session');
     
-    if (!fs.existsSync(sessionDir)) {
-        fs.mkdirSync(sessionDir, { recursive: true });
-    }
+    // التأكد من أن المجلد موجود
+    await fs.ensureDir(sessionDir);
 
     const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
-    const { version }  = await fetchLatestBaileysVersion();
+    const { version } = await fetchLatestBaileysVersion();
 
     const sock = makeWASocket({
         version,
-        logger: P({ level: "silent" }),
-        printQRInTerminal: false,
+        logger: pino({ level: 'silent' }),
+        printQRInTerminal: false, // نعتمد على كود الاقتران (Pairing Code)
         auth: {
             creds: state.creds,
-            keys: makeCacheableSignalKeyStore(state.keys, P({ level: "silent" })),
+            keys: makeCacheableSignalKeyStore(state.keys, pino({ level: 'fatal' })),
         },
-        browser: ["Chrome (Linux)", "", ""]
+        browser: ["Ubuntu", "Chrome", "20.04.0"]
     });
 
-    // إذا لم يكن مسجلاً، ننتظر دقيقة كاملة (60 ثانية) ليستقر الاتصال تماماً ثم نطلب كود الاقتران بمهلة مريحة
+    // إذا لم يكن الجهاز مسجلاً، اطلب كود الاقتران بعد ثوانٍ قليلة لضمان استقرار الاتصال
     if (!sock.authState.creds.registered) {
         setTimeout(async () => {
             try {
-                console.log("⏳ Requesting WhatsApp pairing code after 1 minute stabilization...");
                 let code = await sock.requestPairingCode(phoneNumber);
-                code = code?.match(/.{1,4}/g)?.join("-") || code;
+                code = code?.match(/.{1,4}/g)?.join('-') || code;
                 console.log(`\n========================================`);
-                console.log(`🔑 PAIRING CODE FOR WHATSAPP: ${code}`);
+                console.log(`🔑 كود الاقتران الخاص بك هو: ${code}`);
                 console.log(`========================================\n`);
-            } catch (error) {
-                console.error("Error requesting pairing code:", error);
+            } catch (err) {
+                console.error('❌ حدث خطأ أثناء طلب كود الاقتران:', err);
             }
-        }, 60000); // مهلة دقيقة كاملة (60000 ملي ثانية)
+        }, 6000); // مهلة 6 ثواني لضمان عمل السوكت بنجاح
     }
 
-    sock.ev.on("creds.update", saveCreds);
-
-    sock.ev.on("connection.update", async (update) => {
+    sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect } = update;
         
-        if (connection === "close") {
-            const statusCode = lastDisconnect?.error?.output?.statusCode;
-            const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+        if (connection === 'open') {
+            console.log('✅ تم الاتصال بالواتساب بنجاح!');
+            // إرسال إشارة للـ index.js أن البوت جاهز وعمل بنجاح
+            if (process.send) process.send('ready');
+        }
+
+        if (connection === 'close') {
+            const statusCode = new Boom(lastDisconnect?.error)?.output?.statusCode;
+            console.log(`⚠️ انقطع الاتصال بسبب: ${lastDisconnect?.error}, رمز الخطأ: ${statusCode}`);
             
-            console.log(`⚠️ Disconnected. Status Code: ${statusCode}`);
-            
-            if (shouldReconnect) {
-                setTimeout(() => startBot(), 5000);
+            if (statusCode === DisconnectReason.loggedOut) {
+                console.log('❌ تم تسجيل الخروج من الجهاز، يرجى حذف مجلد الاتصال وإعادة الربط.');
+                process.exit(1);
             } else {
-                console.log("❌ Session logged out.");
-            }
-        } else if (connection === "open") {
-            console.log("✅ Bot connected successfully and running 24/7 on Railway!");
-            
-            try {
-                initAntiContacts(sock);
-                initAntiTourism(sock);
-                initSecurityListener(sock);
-                startPeriodicScan(sock);
-                console.log("🛡️ All security handlers are fully active.");
-            } catch (e) {
-                console.log("[ ERROR ] Initializing systems:", e);
+                // إبلاغ index.js بإعادة التشغيل أو إعادة الاتصال تلقائياً
+                if (process.send) {
+                    process.send('reset');
+                } else {
+                    startBot();
+                }
             }
         }
     });
 
-    sock.ev.on("group-participants.update", async (update) => {
-        try {
-            if (typeof welcome === 'function') await welcome(sock, update);
-        } catch (err) {}
-    });
+    sock.ev.on('creds.update', saveCreds);
 
-    sock.ev.on("messages.upsert", async (chatUpdate) => {
-        try {
-            if (typeof handleMessages === 'function') await handleMessages(sock, chatUpdate);
-            if (typeof Joining === 'function') await Joining(sock, chatUpdate);
-        } catch (err) {}
+    // استقبال رسائل أو أحداث إضافية إذا لزم الأمر
+    sock.ev.on('messages.upsert', async ({ messages }) => {
+        // يمكنك وضع معالج الرسائل هنا إذا رغبت
     });
 }
 
