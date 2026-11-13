@@ -28,7 +28,7 @@ async function startBot() {
     }
 
     const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
-    const { version } = await fetchLatestBaileysVersion();
+    const { version }  = await fetchLatestBaileysVersion();
 
     const sock = makeWASocket({
         version,
@@ -41,10 +41,11 @@ async function startBot() {
         browser: ["Chrome (Linux)", "", ""]
     });
 
-    // إذا لم يكن مسجلاً، اطلب كود الاقتران واعرضه في سجلات Railway
+    // إذا لم يكن مسجلاً، ننتظر دقيقة كاملة (60 ثانية) ليستقر الاتصال تماماً ثم نطلب كود الاقتران بمهلة مريحة
     if (!sock.authState.creds.registered) {
         setTimeout(async () => {
             try {
+                console.log("⏳ Requesting WhatsApp pairing code after 1 minute stabilization...");
                 let code = await sock.requestPairingCode(phoneNumber);
                 code = code?.match(/.{1,4}/g)?.join("-") || code;
                 console.log(`\n========================================`);
@@ -53,7 +54,7 @@ async function startBot() {
             } catch (error) {
                 console.error("Error requesting pairing code:", error);
             }
-        }, 3000);
+        }, 60000); // مهلة دقيقة كاملة (60000 ملي ثانية)
     }
 
     sock.ev.on("creds.update", saveCreds);
