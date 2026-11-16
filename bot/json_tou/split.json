@@ -1,0 +1,22 @@
+[
+  { "question": "بطارية", "answer": "ب ط ا ر ي ة" },
+  { "question": "كتاب", "answer": "ك ت ا ب" },
+  { "question": "فيل", "answer": "ف ي ل" },
+  { "question": "سيارة", "answer": "س ي ا ر ة" },
+  { "question": "كمبيوتر", "answer": "ك م ب ي و ت ر" },
+  { "question": "هاتف", "answer": "ه ا ت ف" },
+  { "question": "طعام", "answer": "ط ع ا م" },
+  { "question": "قمر", "answer": "ق م ر" },
+  { "question": "شمس", "answer": "ش م س" },
+  { "question": "مكيف", "answer": "م ك ي ف" },
+  { "question": "سرير", "answer": "س ر ي ر" },
+  { "question": "كرسي", "answer": "ك ر س ي" },
+  { "question": "ثلاجة", "answer": "ث ل ا ج ة" },
+  { "question": "موز", "answer": "م و ز" },
+  { "question": "فراولة", "answer": "ف ر ا و ل ة" },
+  { "question": "تلفاز", "answer": "ت ل ف ا ز" },
+  { "question": "مطار", "answer": "م ط ا ر" },
+  { "question": "حاسوب", "answer": "ح ا س و ب" },
+  { "question": "مكتبة", "answer": "م ك ت ب ة" },
+  { "question": "دفتر", "answer": "د ف ت ر" }
+]

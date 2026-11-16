@@ -1,0 +1,50 @@
+[
+  {
+    "type": "win",
+    "amount": 1500,
+    "message": "📈 ربحت 1500 نقطة! حظ ممتاز 👏",
+    "image": "win1.png"
+  },
+  {
+    "type": "jackpot",
+    "amount": 20000,
+    "message": "🎰 *البطاقة النادرة 🎫*\n\n🎲 | مبارك لك: 💎\n🏆 | ربحت *20000* نقطة 🎉\n\n🎁 | لم يحصل احد على هذه البطاقة يا بطل",
+    "image": "gold_card.png"
+  },
+  {
+    "type": "diamond_light",
+    "amount": 100000,
+    "message": "💎 *ألماسة الضوء* 💎\n\n🎲 | مبارك لك: 💠\n🏆 | ربحت *100000* نقطة 🎉\n\n🎁 | هذه البطاقة نادرة جداً!",
+    "image": "diamond_light.png"
+  },
+  {
+    "type": "lose",
+    "amount": -300,
+    "message": "😱 خسر 300 نقطة لأن العجلة وقعت على 💣!\n\n📊 | حظ أوفر في المرة المقبلة....📈",
+    "image": "bomb.png"
+  },
+  {
+    "type": "boost",
+    "amount": 5000,
+    "message": "🎰 | كازينو الحظ 🎰\n\n🎲 | النتيجة: 💎\n🏆 | ربحت *5000* نقطة 🎉\n\n📊 | جرب حظك مرة أخرى 📉",
+    "image": "big_win.png"
+  },
+  {
+    "type": "small_lose",
+    "amount": -700,
+    "message": "💔 خسرت 700 نقطة... حاول مرة أخرى",
+    "image": "small_lose.png"
+  },
+  {
+    "type": "nothing",
+    "amount": 0,
+    "message": "🤷‍♂️ لا شيء، كانت عجلة فاضية",
+    "image": "empty.png"
+  },
+  {
+    "type": "zero",
+    "amount": 0,
+    "message": "🟥 | ⚠️ *بطاقة زيرو الحمراء!*\n\n💢 | تم تصفير رصيدك بالكامل يا @username...\n📉 | خسارة فادحة.. حظ أوفر في المرة القادمة!",
+    "image": "zero.png"
+  }
+]

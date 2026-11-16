@@ -1,0 +1,13 @@
+{
+  "name": "whatsapp-bot-github",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "latest",
+    "fs-extra": "^11.2.0",
+    "pino": "^9.0.0"
+  }
+}
